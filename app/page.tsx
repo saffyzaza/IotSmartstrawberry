@@ -3,6 +3,17 @@ import { useState, useEffect } from "react";
 
 export default function Dashboard() {
   const [data, setData] = useState<any>(null);
+  const [imgSrc, setImgSrc] = useState('');
+
+  useEffect(() => {
+  const fetchImage = async () => {
+    const res = await fetch('/api/Stream');
+    const json = await res.json();
+    if (json.image) setImgSrc(json.image);
+  };
+  const interval = setInterval(fetchImage, 5000);
+  return () => clearInterval(interval);
+}, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -107,7 +118,15 @@ export default function Dashboard() {
             icon={data.light > 50 ? "☀️" : "🌑"}
             color="text-yellow-300"
           />
+
+          {imgSrc && (
+  <div className="mt-6 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl">
+    <img src={imgSrc} alt="ESP32-CAM Stream" className="w-full h-auto" />
+    <div className="bg-slate-800 p-2 text-center text-xs text-cyan-400">LIVE FEED</div>
+  </div>
+)}
         </div>
+        
       </div>
     </div>
   );
