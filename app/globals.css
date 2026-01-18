@@ -1,30 +1,61 @@
+/* 1. Import Fonts ต้องอยู่ด้านบนสุดเสมอ */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Roboto+Mono:wght@500&display=swap');
+
+/* 2. Tailwind Directives */
 @import "tailwindcss";
-@import "tailwindcss/preflight";
-@import "tailwindcss/utilities";
 
-:root {
-  --background: #ffffff;
-  --foreground: #0f172a;
-  --card-bg: #f8fafc;
-  --card-border: #e2e8f0;
+@theme {
+  --font-fredoka: "Fredoka", sans-serif;
+  --font-tech-mono: "Roboto Mono", monospace;
+  
+  --background-image-dot-pattern: radial-gradient(#e0e0e5 1px, transparent 1px);
+  --background-image-dot-pattern-dark: radial-gradient(#334155 1px, transparent 1px);
 }
 
-[data-theme='dark'] {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
-  --card-bg: rgba(30, 41, 59, 0.4);
-  --card-border: rgba(51, 65, 85, 0.5);
+/* Fix Dark Mode utilities in v4 to respect .dark class */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 3. Custom Base Styles */
+@layer base {
+  body {
+    background-color: #f4f4f9;
+    @apply text-gray-800 transition-colors duration-300;
+  }
+
+  .dark body {
+    background-color: #0f172a;
+    @apply text-slate-100;
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  transition: all 0.3s e   ase;
-}
+/* 4. Custom Utilities */
+@layer utilities {
+  /* ลายจุดพื้นหลัง */
+  .bg-dot-pattern {
+    background-color: #f4f4f9;
+    background-image: var(--background-image-dot-pattern);
+    background-size: 20px 20px;
+    transition: background-color 0.3s ease;
+  }
 
-/* Custom Card Style for Theme */
-.dashboard-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  backdrop-filter: blur(8px);
+  .dark .bg-dot-pattern {
+    background-color: #0f172a;
+    background-image: var(--background-image-dot-pattern-dark);
+  }
+
+  /* Custom Scrollbar (สวยๆ สำหรับ Dashboard) */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
 }
