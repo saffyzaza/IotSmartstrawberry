@@ -3,10 +3,25 @@ import React, { useState, useEffect } from 'react';
 import CameraConfigModal from './CameraConfigModal';
 import CameraSection from './CameraSection';
 import StatusPanel from './StatusPanel';
-import SensorGrid from './SensorGrid';
 import ControlPanel from './ControlPanel';
+import ScheduleModal from './ScheduleModal';
+import AutomationModal from './AutomationModal';
 
 // --- 1. Types & Interfaces ---
+
+interface Schedule {
+  days: number[];
+  startTime: string;
+  duration: number;
+}
+
+interface AutomationRule {
+  threshold: number;
+  condition: 'above' | 'below';
+  action: 'on' | 'off';
+  relay: string;
+  enabled: boolean;
+}
 
 interface SensorConfig {
   label: string;
@@ -42,7 +57,14 @@ const BioDashboard: React.FC = () => {
   const [relays, setRelays] = useState({
     relay1: false, relay2: false, relay3: false, relay4: false
   });
+  const [schedules, setSchedules] = useState<Record<string, Schedule>>({});
+  const [automationRules, setAutomationRules] = useState<Record<string, AutomationRule>>({});
   const [streamImage, setStreamImage] = useState<string>('');
+
+  // Modals Local State
+  const [selectedRelay, setSelectedRelay] = useState<{ id: string; name: string } | null>(null);
+  const [showAutomation, setShowAutomation] = useState(false);
+
   const [lastUpdate, setLastUpdate] = useState<string>('-');
   const [isDark, setIsDark] = useState(false);
 
@@ -77,7 +99,7 @@ const BioDashboard: React.FC = () => {
         const res = await fetch('/api/sensor');
         const json = await res.json();
         if (json.temp !== undefined) {
-          const { lastUpdate: updateTime, relay1, relay2, relay3, relay4, ...sensors } = json;
+          const { lastUpdate: updateTime, schedules: s, automationRules: a, relay1, relay2, relay3, relay4, ...sensors } = json;
           setData(prev => ({ ...prev, ...sensors }));
           setRelays({
             relay1: !!relay1,
@@ -85,6 +107,8 @@ const BioDashboard: React.FC = () => {
             relay3: !!relay3,
             relay4: !!relay4
           });
+          if (s) setSchedules(s);
+          if (a) setAutomationRules(a);
           if (updateTime) setLastUpdate(updateTime);
         }
       } catch (e) { console.error(e); }
@@ -98,14 +122,19 @@ const BioDashboard: React.FC = () => {
       } catch (e) { console.error(e); }
     };
 
-    const interval = setInterval(() => {
-      fetchSensors();
-      fetchStream();
-    }, 2000);
+    // Sensor poll every 2-5 seconds (now 3s for balance)
+    const sensorInterval = setInterval(fetchSensors, 3000);
+    
+    // Stream poll every 15 minutes (900,000ms)
+    const streamInterval = setInterval(fetchStream, 900000);
 
     fetchSensors();
     fetchStream();
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(sensorInterval);
+      clearInterval(streamInterval);
+    };
   }, []);
 
   // Fetch Camera Config
@@ -154,6 +183,41 @@ const BioDashboard: React.FC = () => {
     }
   };
 
+  const handleSaveSchedule = async (relayId: string, newSchedule: Schedule) => {
+    try {
+      setSchedules(prev => ({ ...prev, [relayId]: newSchedule }));
+      await fetch('/api/sensor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schedules: {
+            ...schedules,
+            [relayId]: newSchedule
+          }
+        })
+      });
+      setSelectedRelay(null);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to save schedule');
+    }
+  };
+
+  const handleSaveAutomation = async (newRules: Record<string, AutomationRule>) => {
+    try {
+      setAutomationRules(newRules);
+      await fetch('/api/sensor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ automationRules: newRules })
+      });
+      setShowAutomation(false);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to save automation rules');
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-dot-pattern font-fredoka flex flex-col py-10 px-4 transition-colors duration-300">
       
@@ -164,6 +228,14 @@ const BioDashboard: React.FC = () => {
         </h1>
         
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowAutomation(true)}
+            className="p-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700 hover:scale-105 transition-all text-xl"
+            title="Automation Setup"
+          >
+            🤖
+          </button>
+
           <button 
             onClick={() => setShowConfig(true)}
             className="p-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm border border-gray-100 dark:border-slate-700 hover:scale-105 transition-all text-xl"
@@ -202,11 +274,30 @@ const BioDashboard: React.FC = () => {
         {/* Control Panel: 4-Channel Relays */}
         <ControlPanel 
           relays={relays} 
+          schedules={schedules}
           onToggle={handleToggleRelay} 
+          onOpenSchedule={(id, name) => setSelectedRelay({ id, name })}
         />
 
-        {/* Bottom Grid: Sensor Details */}
-        <SensorGrid data={data} sensorConfig={SENSOR_CONFIG} onUpdate={updateData} />
+        {/* Schedule Modal */}
+        {selectedRelay && (
+          <ScheduleModal
+            isOpen={!!selectedRelay}
+            onClose={() => setSelectedRelay(null)}
+            relayId={selectedRelay.id}
+            relayName={selectedRelay.name}
+            schedule={schedules[selectedRelay.id] || { days: [], startTime: "08:00", duration: 1 }}
+            onSave={handleSaveSchedule}
+          />
+        )}
+
+        {/* Automation Modal */}
+        <AutomationModal
+          isOpen={showAutomation}
+          onClose={() => setShowAutomation(false)}
+          rules={automationRules}
+          onSave={handleSaveAutomation}
+        />
       </div>
 
     </div>
