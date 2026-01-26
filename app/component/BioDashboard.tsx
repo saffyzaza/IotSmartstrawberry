@@ -126,7 +126,7 @@ const BioDashboard: React.FC = () => {
     const sensorInterval = setInterval(fetchSensors, 3000);
     
     // Stream poll every 15 minutes (900,000ms)
-    const streamInterval = setInterval(fetchStream, 900000);
+    const streamInterval = setInterval(fetchStream, 180000);
 
     fetchSensors();
     fetchStream();
